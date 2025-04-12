@@ -25,6 +25,21 @@ from backend.schemas import (
 from backend.search.search_service import perform_search
 from backend.utils import is_local_model
 
+import sys
+sys.path.append("/workspace")
+from user_prompts.external_prompts import EXTERNAL_CHAT_PROMPT
+import os
+
+def check_external_prompt() -> None:
+    file_path = "/workspace/user_prompts/external_prompts.py"  # Ensure correct path
+
+    if not os.path.exists(file_path):
+        print(f" File '{file_path}' not found inside the container!")
+    else:
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+            print("File content:\n", content)
+
 
 def rephrase_query_with_history(
     question: str, history: List[Message], llm: BaseLLM
@@ -90,7 +105,8 @@ async def stream_qa_objects(
             ),
         )
 
-        fmt_qa_prompt = CHAT_PROMPT.format(
+        check_external_prompt()
+        fmt_qa_prompt = EXTERNAL_CHAT_PROMPT.format(
             my_context=format_context(search_results),
             my_query=query,
         )

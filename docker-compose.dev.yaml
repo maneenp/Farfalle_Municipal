@@ -55,6 +55,8 @@ services:
           target: /workspace/src/backend
     networks:
       - farfalle-network
+    volumes:
+      - ./user_prompts:/workspace/user_prompts
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
