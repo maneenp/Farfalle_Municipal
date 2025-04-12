@@ -11,6 +11,7 @@ from backend.search.providers.bing import BingSearchProvider
 from backend.search.providers.searxng import SearxngSearchProvider
 from backend.search.providers.serper import SerperSearchProvider
 from backend.search.providers.tavily import TavilySearchProvider
+from backend.search.providers.yacy import YacySearchProvider
 
 load_dotenv()
 
@@ -58,6 +59,17 @@ def get_bing_api_key():
         )
     return bing_api_key
 
+def get_yacy_host():
+    yacy_host = os.getenv("YACY_HOST")
+    source_count = os.getenv("SOURCE_COUNT")
+    if yacy_host is None:
+        raise HTTPException(
+            status_code=500,
+            detail="YACY_HOST is not set in the environment variables. Please set the YACY_HOST environment variable or set SEARCH_PROVIDER to 'yacy'.",
+        )
+    return yacy_host, source_count
+
+
 
 def get_search_provider() -> SearchProvider:
     search_provider = os.getenv("SEARCH_PROVIDER", "searxng")
@@ -75,6 +87,9 @@ def get_search_provider() -> SearchProvider:
         case "bing":
             bing_api_key = get_bing_api_key()
             return BingSearchProvider(bing_api_key)
+        case "yacy":
+            yacy_host, source_count = get_yacy_host()
+            return YacySearchProvider(yacy_host, source_count)
         case _:
             raise HTTPException(
                 status_code=500,

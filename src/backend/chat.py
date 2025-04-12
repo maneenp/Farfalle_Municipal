@@ -62,13 +62,18 @@ async def stream_qa_objects(
             event=StreamEvent.BEGIN_STREAM,
             data=BeginStream(query=request.query),
         )
+        # disable reprahse query with the history
+        # query = rephrase_query_with_history(request.query, request.history, llm)
 
-        query = rephrase_query_with_history(request.query, request.history, llm)
-
+        query = request.query
         search_response = await perform_search(query)
 
         search_results = search_response.results
-        images = search_response.images
+        # images = search_response.images
+        if not search_response.results:
+            print("Es wurde kein Suchergebnise gefunden.")
+            raise Exception("Es wurde kein Suchergebnise gefunden.")
+        
 
         # Only create the task first if the model is not local
         related_queries_task = None
@@ -81,7 +86,7 @@ async def stream_qa_objects(
             event=StreamEvent.SEARCH_RESULTS,
             data=SearchResultStream(
                 results=search_results,
-                images=images,
+                #images=images,
             ),
         )
 
@@ -117,7 +122,7 @@ async def stream_qa_objects(
             assistant_message=full_response,
             model=request.model,
             search_results=search_results,
-            image_results=images,
+            image_results=None,
             related_queries=related_queries,
         )
 

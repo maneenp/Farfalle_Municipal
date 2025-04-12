@@ -104,6 +104,19 @@ async def chat(
 ) -> Generator[ChatResponseEvent, None, None]:
     async def generator():
         try:
+            if not chat_request.model:
+                  raise HTTPException(status_code=422, detail="Model name is required")
+            
+            # Serialize the ChatRequest to JSON string format
+            chat_request_str = json.dumps(jsonable_encoder(chat_request), indent=4)
+            # Get headers and convert them to string
+            request_headers_str = json.dumps(dict(request.headers), indent=4) 
+            # Prepare full output string
+            full_string_representation = (
+            f"Chat Request:\n{chat_request_str}\n\n"
+            f"Request Headers:\n{request_headers_str}"
+            )
+
             validate_model(chat_request.model)
             stream_fn = (
                 stream_pro_search_qa if chat_request.pro_search else stream_qa_objects

@@ -105,7 +105,7 @@ class BeginStream(ChatObject, plugin_settings=record_all):
 class SearchResultStream(ChatObject, plugin_settings=record_all):
     event_type: StreamEvent = StreamEvent.SEARCH_RESULTS
     results: List[SearchResult] = Field(default_factory=list)
-    images: List[str] = Field(default_factory=list)
+    # images: List[str] = Field(default_factory=list)
 
 
 class TextChunkStream(ChatObject):
