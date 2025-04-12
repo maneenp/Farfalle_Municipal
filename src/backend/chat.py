@@ -28,7 +28,7 @@ from backend.utils import is_local_model
 import sys
 sys.path.append("/workspace")
 from user_prompts.external_prompts import EXTERNAL_CHAT_PROMPT, EXTERNAL_KEYWORD_PROMPT
-from user_prompts.user_config import USE_KEYWORDS, PRINT_PROMPTS
+from user_prompts.user_config import USE_KEYWORDS, PRINT_PROMPTS, STD_YACY_QUERY_TYPE
 import os
 
 def check_external_prompt() -> None:
@@ -106,9 +106,9 @@ async def stream_qa_objects(
         if USE_KEYWORDS:
             keyword_list = await extract_keywords(query, model_name)
             print("keyword_list", keyword_list)
-            search_response = await perform_search(keyword_list, use_keyword=True)
+            search_response = await perform_search(keyword_list, use_keyword=True, solr_query_type=STD_YACY_QUERY_TYPE)
         else:
-            search_response = await perform_search(query, use_keyword=False)
+            search_response = await perform_search(query, use_keyword=False, solr_query_type=STD_YACY_QUERY_TYPE)
 
         search_results = search_response.results
         # images = search_response.images

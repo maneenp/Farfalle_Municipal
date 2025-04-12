@@ -21,7 +21,7 @@ You can use markdown formatting. You should include bullets to list the informat
 Make sure to match the language of the user's question.
 
 Question: {my_query}
-Answer (always answer in SINHALA): \
+Answer (always answer in the language of user's question): \
 """
 
 

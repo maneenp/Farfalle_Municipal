@@ -97,7 +97,7 @@ def get_search_provider() -> SearchProvider:
             )
 
 
-async def perform_search(query: str, use_keyword: bool) -> SearchResponse:
+async def perform_search(query: str, use_keyword: bool, solr_query_type: bool=True) -> SearchResponse:
     search_provider = get_search_provider()
 
     try:
@@ -107,9 +107,9 @@ async def perform_search(query: str, use_keyword: bool) -> SearchResponse:
             return SearchResponse(**cached_json)
 
         if use_keyword:
-            results = await search_provider.search_keyword(query)
+            results = await search_provider.search_keyword(query, solr_query_type)
         else:
-            results = await search_provider.search(query)
+            results = await search_provider.search(query, solr_query_type)
 
         if redis_client:
             redis_client.set(cache_key, json.dumps(results.model_dump_json()), ex=7200)

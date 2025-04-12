@@ -1,2 +1,3 @@
 USE_KEYWORDS = False
+STD_YACY_QUERY_TYPE = True # STD_QUERY_TYPE is SOLR if False, then JSON
 PRINT_PROMPTS = False
