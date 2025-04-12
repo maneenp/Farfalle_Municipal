@@ -27,7 +27,8 @@ from backend.utils import is_local_model
 
 import sys
 sys.path.append("/workspace")
-from user_prompts.external_prompts import EXTERNAL_CHAT_PROMPT
+from user_prompts.external_prompts import EXTERNAL_CHAT_PROMPT, EXTERNAL_KEYWORD_PROMPT
+from user_prompts.user_config import USE_KEYWORDS, PRINT_PROMPTS
 import os
 
 def check_external_prompt() -> None:
@@ -39,6 +40,23 @@ def check_external_prompt() -> None:
         with open(file_path, "r", encoding="utf-8") as file:
             content = file.read()
             print("File content:\n", content)
+
+async def extract_keywords(query: str, model_name: str)-> List[str]:
+    llm_keyword = EveryLLM(model=model_name)
+    fmt_ka_prompt = EXTERNAL_KEYWORD_PROMPT.format(
+            my_query=query
+        )
+      
+    full_response = ""
+    response_gen = await llm_keyword.astream(fmt_ka_prompt)
+    async for completion in response_gen:
+        full_response += completion.delta or ""
+    print("full_response", full_response) 
+    clean_response = full_response.replace('"', '').strip()
+
+    # Split the response into a list of keywords
+    keywords = [keyword.strip() for keyword in clean_response.split(",") if keyword.strip()]
+    return keywords
 
 
 def rephrase_query_with_history(
@@ -81,7 +99,16 @@ async def stream_qa_objects(
         # query = rephrase_query_with_history(request.query, request.history, llm)
 
         query = request.query
-        search_response = await perform_search(query)
+
+        if PRINT_PROMPTS:
+            check_external_prompt()
+
+        if USE_KEYWORDS:
+            keyword_list = await extract_keywords(query, model_name)
+            print("keyword_list", keyword_list)
+            search_response = await perform_search(keyword_list, use_keyword=True)
+        else:
+            search_response = await perform_search(query, use_keyword=False)
 
         search_results = search_response.results
         # images = search_response.images
@@ -105,7 +132,6 @@ async def stream_qa_objects(
             ),
         )
 
-        check_external_prompt()
         fmt_qa_prompt = EXTERNAL_CHAT_PROMPT.format(
             my_context=format_context(search_results),
             my_query=query,

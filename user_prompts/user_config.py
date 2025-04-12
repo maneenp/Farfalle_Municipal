@@ -1,0 +1,2 @@
+USE_KEYWORDS = False
+PRINT_PROMPTS = False

@@ -53,7 +53,7 @@ class YacySearchProvider(SearchProvider):
                 "defType": "edismax",
                 "q.op": "OR",
                 "start": 0,
-                "rows": 3,
+                "rows": self.source_count,
                 "core": "collection1",
                 "wt": "json",
                 }

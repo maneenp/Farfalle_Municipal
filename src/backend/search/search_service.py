@@ -97,7 +97,7 @@ def get_search_provider() -> SearchProvider:
             )
 
 
-async def perform_search(query: str) -> SearchResponse:
+async def perform_search(query: str, use_keyword: bool) -> SearchResponse:
     search_provider = get_search_provider()
 
     try:
@@ -106,7 +106,10 @@ async def perform_search(query: str) -> SearchResponse:
             cached_json = json.loads(json.loads(cached_results.decode("utf-8")))  # type: ignore
             return SearchResponse(**cached_json)
 
-        results = await search_provider.search(query)
+        if use_keyword:
+            results = await search_provider.search_keyword(query)
+        else:
+            results = await search_provider.search(query)
 
         if redis_client:
             redis_client.set(cache_key, json.dumps(results.model_dump_json()), ex=7200)

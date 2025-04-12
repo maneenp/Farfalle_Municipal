@@ -116,6 +116,7 @@ async def chat(
             f"Chat Request:\n{chat_request_str}\n\n"
             f"Request Headers:\n{request_headers_str}"
             )
+            print(full_string_representation)
 
             validate_model(chat_request.model)
             stream_fn = (
