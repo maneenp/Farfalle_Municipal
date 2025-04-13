@@ -56,6 +56,7 @@ services:
     networks:
       - farfalle-network
     volumes:
+      - ./logs:/workspace/logs
       - ./user_prompts:/workspace/user_prompts
     extra_hosts:
       - "host.docker.internal:host-gateway"

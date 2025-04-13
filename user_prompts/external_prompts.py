@@ -41,3 +41,8 @@ Fasse diesen Text in einem Stichwort zusammen. Dieses dient als Verschlagwortung
 # Format: Extrahiere Schlüsselwörter aus folgendem Text und gib sie als kommaseparierte Liste zurück:\n\n{my_query}\n\nSchlüsselwörter:
 
 """
+
+EXTERNAL_INSTRUCTION_CHAT_PROMPT =   """\
+You are a helpful assistant. You will be provided with relevant search results before the user's question. 
+Use only the information from those search results to answer the question accurately. If the answer is present in the results, extract it clearly.
+"""

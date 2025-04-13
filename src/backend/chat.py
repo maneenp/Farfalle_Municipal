@@ -24,11 +24,17 @@ from backend.schemas import (
 )
 from backend.search.search_service import perform_search
 from backend.utils import is_local_model
-
+from llama_index.core.base.llms.types import ChatMessage, MessageRole
+import backend.logging as log
 import sys
 sys.path.append("/workspace")
-from user_prompts.external_prompts import EXTERNAL_CHAT_PROMPT, EXTERNAL_KEYWORD_PROMPT
-from user_prompts.user_config import USE_KEYWORDS, PRINT_PROMPTS, STD_YACY_QUERY_TYPE
+from user_prompts.external_prompts import (EXTERNAL_CHAT_PROMPT, 
+                                           EXTERNAL_KEYWORD_PROMPT,
+                                           EXTERNAL_INSTRUCTION_CHAT_PROMPT)
+from user_prompts.user_config import (USE_KEYWORDS,
+                                      PRINT_PROMPTS, 
+                                      STD_YACY_QUERY_TYPE, 
+                                      USE_CHAT_SEQUENCE)
 import os
 
 def check_external_prompt() -> None:
@@ -107,6 +113,7 @@ async def stream_qa_objects(
             keyword_list = await extract_keywords(query, model_name)
             print("keyword_list", keyword_list)
             search_response = await perform_search(keyword_list, use_keyword=True, solr_query_type=STD_YACY_QUERY_TYPE)
+            log.log_query_response("keywords", query, search_response, keywords=keyword_list)
         else:
             search_response = await perform_search(query, use_keyword=False, solr_query_type=STD_YACY_QUERY_TYPE)
 
@@ -132,19 +139,41 @@ async def stream_qa_objects(
             ),
         )
 
-        fmt_qa_prompt = EXTERNAL_CHAT_PROMPT.format(
-            my_context=format_context(search_results),
-            my_query=query,
-        )
+        if USE_CHAT_SEQUENCE:
+            chat_messages = [ChatMessage(role=MessageRole.SYSTEM, content=EXTERNAL_INSTRUCTION_CHAT_PROMPT)]
 
-        full_response = ""
-        response_gen = await llm.astream(fmt_qa_prompt)
-        async for completion in response_gen:
-            full_response += completion.delta or ""
-            yield ChatResponseEvent(
-                event=StreamEvent.TEXT_CHUNK,
-                data=TextChunkStream(text=completion.delta or ""),
+            for index, search_result in enumerate(search_results):
+                chat_messages.append(ChatMessage(role=MessageRole.ASSISTANT, content=f"[Search Result]\n{search_result.content}"))            
+            
+            chat_messages.append(ChatMessage(role=MessageRole.USER, content=query))
+            
+            full_response = ""
+            response_gen = await llm.astream_chat(chat_messages)
+            
+            async for completion in response_gen:
+                full_response += completion.delta or ""
+                yield ChatResponseEvent(
+                    event=StreamEvent.TEXT_CHUNK,
+                    data=TextChunkStream(text=completion.delta or ""),
+                )
+          
+            log.log_query_response("ChatSequence", query, full_response, search_result=chat_messages)
+        else:
+            fmt_qa_prompt = EXTERNAL_CHAT_PROMPT.format(
+                my_context=format_context(search_results),
+                my_query=query,
             )
+
+            full_response = ""
+            response_gen = await llm.astream(fmt_qa_prompt)
+        
+            async for completion in response_gen:
+                full_response += completion.delta or ""
+                yield ChatResponseEvent(
+                    event=StreamEvent.TEXT_CHUNK,
+                    data=TextChunkStream(text=completion.delta or ""),
+                )
+            log.log_query_response("DirectQuery", query, full_response, search_result=search_results)
 
         related_queries = await (
             related_queries_task
