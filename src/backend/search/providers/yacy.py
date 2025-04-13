@@ -94,11 +94,13 @@ class YacySearchProvider(SearchProvider):
         data = response.json()
         results = []
             
-        for doc in data["response"]["docs"]:
-            result = SearchResult(title=doc.get("title", ["N/A"])[0],  # Get the first title if it's a list
-                                        url=doc.get("sku", "N/A"),
-                                        content=doc.get("text_t", "N/A"))
-            results.append(result)
+        for item in data["channels"][0]["items"]:
+                result = SearchResult(
+                            title=item["title"],
+                                url=item["link"],
+                                content=item["description"]
+                                )
+                results.append(result)
 
         search_response = SearchResponse(results=results)
         return search_response
