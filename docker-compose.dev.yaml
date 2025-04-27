@@ -16,6 +16,8 @@ services:
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - SERPER_API_KEY=${SERPER_API_KEY}
       - BING_API_KEY=${BING_API_KEY}
+      - YACY_HOST=${YACY_HOST}
+      - SOURCE_COUNT=${SOURCE_COUNT}
 
       - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
 
@@ -53,6 +55,9 @@ services:
           target: /workspace/src/backend
     networks:
       - farfalle-network
+    volumes:
+      - ./logs:/workspace/logs
+      - ./user_prompts:/workspace/user_prompts
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

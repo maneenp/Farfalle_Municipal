@@ -24,6 +24,45 @@ from backend.schemas import (
 )
 from backend.search.search_service import perform_search
 from backend.utils import is_local_model
+from llama_index.core.base.llms.types import ChatMessage, MessageRole
+import backend.logging as log
+import sys
+sys.path.append("/workspace")
+from user_prompts.external_prompts import (EXTERNAL_CHAT_PROMPT, 
+                                           EXTERNAL_KEYWORD_PROMPT,
+                                           EXTERNAL_INSTRUCTION_CHAT_PROMPT)
+from user_prompts.user_config import (USE_KEYWORDS,
+                                      PRINT_PROMPTS, 
+                                      STD_YACY_QUERY_TYPE, 
+                                      USE_CHAT_SEQUENCE)
+import os
+
+def check_external_prompt() -> None:
+    file_path = "/workspace/user_prompts/external_prompts.py"  # Ensure correct path
+
+    if not os.path.exists(file_path):
+        print(f" File '{file_path}' not found inside the container!")
+    else:
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+            print("File content:\n", content)
+
+async def extract_keywords(query: str, model_name: str)-> List[str]:
+    llm_keyword = EveryLLM(model=model_name)
+    fmt_ka_prompt = EXTERNAL_KEYWORD_PROMPT.format(
+            my_query=query
+        )
+      
+    full_response = ""
+    response_gen = await llm_keyword.astream(fmt_ka_prompt)
+    async for completion in response_gen:
+        full_response += completion.delta or ""
+    print("full_response", full_response) 
+    clean_response = full_response.replace('"', '').strip()
+
+    # Split the response into a list of keywords
+    keywords = [keyword.strip() for keyword in clean_response.split(",") if keyword.strip()]
+    return keywords
 
 
 def rephrase_query_with_history(
@@ -62,13 +101,28 @@ async def stream_qa_objects(
             event=StreamEvent.BEGIN_STREAM,
             data=BeginStream(query=request.query),
         )
+        # disable reprahse query with the history
+        # query = rephrase_query_with_history(request.query, request.history, llm)
 
-        query = rephrase_query_with_history(request.query, request.history, llm)
+        query = request.query
 
-        search_response = await perform_search(query)
+        if PRINT_PROMPTS:
+            check_external_prompt()
+
+        if USE_KEYWORDS:
+            keyword_list = await extract_keywords(query, model_name)
+            print("keyword_list", keyword_list)
+            search_response = await perform_search(keyword_list, use_keyword=True, solr_query_type=STD_YACY_QUERY_TYPE)
+            log.log_query_response("keywords", query, search_response, keywords=keyword_list)
+        else:
+            search_response = await perform_search(query, use_keyword=False, solr_query_type=STD_YACY_QUERY_TYPE)
 
         search_results = search_response.results
-        images = search_response.images
+        # images = search_response.images
+        if not search_response.results:
+            print("Es wurde kein Suchergebnise gefunden.")
+            raise Exception("Es wurde kein Suchergebnise gefunden.")
+        
 
         # Only create the task first if the model is not local
         related_queries_task = None
@@ -81,23 +135,45 @@ async def stream_qa_objects(
             event=StreamEvent.SEARCH_RESULTS,
             data=SearchResultStream(
                 results=search_results,
-                images=images,
+                #images=images,
             ),
         )
 
-        fmt_qa_prompt = CHAT_PROMPT.format(
-            my_context=format_context(search_results),
-            my_query=query,
-        )
+        if USE_CHAT_SEQUENCE:
+            chat_messages = [ChatMessage(role=MessageRole.SYSTEM, content=EXTERNAL_INSTRUCTION_CHAT_PROMPT)]
 
-        full_response = ""
-        response_gen = await llm.astream(fmt_qa_prompt)
-        async for completion in response_gen:
-            full_response += completion.delta or ""
-            yield ChatResponseEvent(
-                event=StreamEvent.TEXT_CHUNK,
-                data=TextChunkStream(text=completion.delta or ""),
+            for index, search_result in enumerate(search_results):
+                chat_messages.append(ChatMessage(role=MessageRole.ASSISTANT, content=f"[Search Result]\n{search_result.content}"))            
+            
+            chat_messages.append(ChatMessage(role=MessageRole.USER, content=query))
+            
+            full_response = ""
+            response_gen = await llm.astream_chat(chat_messages)
+            
+            async for completion in response_gen:
+                full_response += completion.delta or ""
+                yield ChatResponseEvent(
+                    event=StreamEvent.TEXT_CHUNK,
+                    data=TextChunkStream(text=completion.delta or ""),
+                )
+          
+            log.log_query_response("ChatSequence", query, full_response, search_result=chat_messages)
+        else:
+            fmt_qa_prompt = EXTERNAL_CHAT_PROMPT.format(
+                my_context=format_context(search_results),
+                my_query=query,
             )
+
+            full_response = ""
+            response_gen = await llm.astream(fmt_qa_prompt)
+        
+            async for completion in response_gen:
+                full_response += completion.delta or ""
+                yield ChatResponseEvent(
+                    event=StreamEvent.TEXT_CHUNK,
+                    data=TextChunkStream(text=completion.delta or ""),
+                )
+            log.log_query_response("DirectQuery", query, full_response, search_result=search_results)
 
         related_queries = await (
             related_queries_task
@@ -117,7 +193,7 @@ async def stream_qa_objects(
             assistant_message=full_response,
             model=request.model,
             search_results=search_results,
-            image_results=images,
+            image_results=None,
             related_queries=related_queries,
         )
 

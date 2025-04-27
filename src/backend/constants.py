@@ -28,7 +28,7 @@ model_mappings: dict[ChatModel, str] = {
     ChatModel.LLAMA_3_70B: "groq/llama-3.1-70b-versatile",
     ChatModel.LOCAL_LLAMA_3: "ollama_chat/llama3.1",
     ChatModel.LOCAL_GEMMA: "ollama_chat/gemma",
-    ChatModel.LOCAL_MISTRAL: "ollama_chat/mistral",
+    ChatModel.LOCAL_MISTRAL: "ollama_chat/mistral-small:24b",
     ChatModel.LOCAL_PHI3_14B: "ollama_chat/phi3:14b",
 }
 

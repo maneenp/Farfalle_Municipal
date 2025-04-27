@@ -1,12 +1,14 @@
 import os
 from abc import ABC, abstractmethod
-
+from typing import Sequence
 import instructor
 from dotenv import load_dotenv
 from instructor.client import T
 from litellm import completion
 from litellm.utils import validate_environment
 from llama_index.core.base.llms.types import (
+    ChatMessage,
+    ChatResponseAsyncGen,
     CompletionResponse,
     CompletionResponseAsyncGen,
 )
@@ -26,6 +28,10 @@ class BaseLLM(ABC):
 
     @abstractmethod
     def structured_complete(self, response_model: type[T], prompt: str) -> T:
+        pass
+
+    @abstractmethod
+    def astream_chat(self, messages: Sequence[ChatMessage]) -> ChatResponseAsyncGen:
         pass
 
 
@@ -58,3 +64,6 @@ class EveryLLM(BaseLLM):
             messages=[{"role": "user", "content": prompt}],
             response_model=response_model,
         )
+    
+    async def astream_chat(self, messages: Sequence[ChatMessage]) -> ChatResponseAsyncGen:
+        return await self.llm.astream_chat(messages)

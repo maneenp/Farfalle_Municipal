@@ -11,6 +11,7 @@ from backend.search.providers.bing import BingSearchProvider
 from backend.search.providers.searxng import SearxngSearchProvider
 from backend.search.providers.serper import SerperSearchProvider
 from backend.search.providers.tavily import TavilySearchProvider
+from backend.search.providers.yacy import YacySearchProvider
 
 load_dotenv()
 
@@ -58,6 +59,17 @@ def get_bing_api_key():
         )
     return bing_api_key
 
+def get_yacy_host():
+    yacy_host = os.getenv("YACY_HOST")
+    source_count = os.getenv("SOURCE_COUNT")
+    if yacy_host is None:
+        raise HTTPException(
+            status_code=500,
+            detail="YACY_HOST is not set in the environment variables. Please set the YACY_HOST environment variable or set SEARCH_PROVIDER to 'yacy'.",
+        )
+    return yacy_host, source_count
+
+
 
 def get_search_provider() -> SearchProvider:
     search_provider = os.getenv("SEARCH_PROVIDER", "searxng")
@@ -75,6 +87,9 @@ def get_search_provider() -> SearchProvider:
         case "bing":
             bing_api_key = get_bing_api_key()
             return BingSearchProvider(bing_api_key)
+        case "yacy":
+            yacy_host, source_count = get_yacy_host()
+            return YacySearchProvider(yacy_host, source_count)
         case _:
             raise HTTPException(
                 status_code=500,
@@ -82,7 +97,7 @@ def get_search_provider() -> SearchProvider:
             )
 
 
-async def perform_search(query: str) -> SearchResponse:
+async def perform_search(query: str, use_keyword: bool, solr_query_type: bool=True) -> SearchResponse:
     search_provider = get_search_provider()
 
     try:
@@ -91,7 +106,10 @@ async def perform_search(query: str) -> SearchResponse:
             cached_json = json.loads(json.loads(cached_results.decode("utf-8")))  # type: ignore
             return SearchResponse(**cached_json)
 
-        results = await search_provider.search(query)
+        if use_keyword:
+            results = await search_provider.search_keyword(query, solr_query_type)
+        else:
+            results = await search_provider.search(query, solr_query_type)
 
         if redis_client:
             redis_client.set(cache_key, json.dumps(results.model_dump_json()), ex=7200)
